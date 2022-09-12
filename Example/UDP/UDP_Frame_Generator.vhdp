@@ -1,0 +1,289 @@
+/*
+    Name: UDP Frame Generator
+    Rev: 1.0
+    Creator: Leon Beier
+    Date: 11.09.2022
+    Copyright (c) 2022 Protop Solutions UG. All right reserved.
+    
+    Permission is hereby granted, free of charge, to any person obtaining a copy of
+    this hdl code and associated documentation files (the "HDL Code"), to deal in the
+    HDL Code without restriction, including without limitation the rights to use,
+    copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+    HDL Code, and to permit persons to whom the HDL Code is furnished to do so,
+    subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the HDL Code.
+
+    THE HDL Code IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+    FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+    AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+    WITH THE HDL Code OR THE USE OR OTHER DEALINGS IN THE HDL Code.
+
+    Description: -This component creates an Ethernet frame with IP and UDP
+                 -The PHY_... I/Os are connected with e.g. the lan8720a library
+               
+    Usage:       -Connect CLK with the 50MHz clock of the PHY:
+                 NewComponent UDP_Frame_Generator (
+                    CLK => lan8720a_eth_retclk_i,
+                 ...
+                 -Set all paramters according to your application
+                 -Set TX_Length to the number of UDP bytes to send and set TX_Start to '1'
+                 -Always set TX_Data to the byte on TX_Read_Byte position
+                 -Set TX_Start to '0' before TX_Read_Byte is equal to TX_Length
+                 
+    Example:     SIGNAL UDP_Data_RAM    : UDP_Data_RAM_t(0 to 4) := (x"01", x"02", x"03", x"04", x"05");
+                 SIGNAL UDP_Data_Length : NATURAL range 0 to 1472 := 5;
+                 
+                 Process()
+                 {
+                     Thread
+                     {
+                         lan8720a_rst_i <= '1';
+                         Wait(30ms);
+                         lan8720a_rst_i <= '0';
+                         Wait(30ms);
+                         While(true)
+                         {
+                             NewFunction UDP_Send (UDP_Data_Length, UDP_Data_RAM, UDP_TX_Start, UDP_TX_Length, UDP_TX_Data, UDP_TX_Read_Byte);
+                             Wait(1000ms);
+                         }
+                     }
+                 }
+    
+ */
+
+Component UDP_Frame_Generator
+(
+    Include
+    (
+        UDP_Data_RAM_Package.all,
+    );
+    Package UDP_Data_RAM_Package
+    (
+        type UDP_Data_RAM_t is array (natural range <>) of STD_LOGIC_VECTOR(7 downto 0);
+    );
+    Generic
+    (
+        --Ethernet
+        Source_MAC_Address : STD_LOGIC_VECTOR(6*8-1 downto 0) := x"123456781234";
+        EtherType          : STD_LOGIC_VECTOR(2*8-1 downto 0) := x"0800"; --0x0800 is IPv4
+        
+        --IP
+        Version            : STD_LOGIC_VECTOR(3 downto 0) := x"4";  --IPv4 or IPv6
+        IHL                : STD_LOGIC_VECTOR(3 downto 0) := x"5";  --Header Length (*32 Bit)
+        TOS                : STD_LOGIC_VECTOR(7 downto 0) := x"00"; --Priority (Bit 0-5 DSCP, Bit 6-7 ECN)
+        TTL                : STD_LOGIC_VECTOR(7 downto 0) := x"80"; --Hop Limit (default 128)
+        Protocol           : STD_LOGIC_VECTOR(7 downto 0) := x"11"; --0x11 = UDP
+    );
+    --Ethernet
+    Destination_MAC_Address : IN STD_LOGIC_VECTOR(6*8-1 downto 0) := x"876543218765";
+    
+    --IP Fragment
+    Identification          : IN STD_LOGIC_VECTOR(2*8-1 downto 0) := x"0000"; --For fragmented packets
+    Flags                   : IN STD_LOGIC_VECTOR(2 downto 0) := "010";
+    Fragment_Offset         : IN STD_LOGIC_VECTOR(12 downto 0) := "0000000000000";
+    
+    --IP Address
+    Source_IP_Address       : IN STD_LOGIC_VECTOR(4*8-1 downto 0) := x"C0A80005"; --192.168.0.5
+    Destination_IP_Address  : IN STD_LOGIC_VECTOR(4*8-1 downto 0) := x"C0A80002"; --192.168.0.2
+    
+    --UDP
+    Source_UDP_Port         : IN STD_LOGIC_VECTOR(2*8-1 downto 0) := x"C000";
+    Destination_UDP_Port    : IN STD_LOGIC_VECTOR(2*8-1 downto 0) := x"C000";
+    
+    --UDP TX
+    TX_Start                : IN STD_LOGIC := '0';
+    TX_Length               : IN NATURAL range 0 to 1472 := 0; --Length of Data in Bytes (without 20 Byte IP and 8 Byte UDP)
+    TX_Data                 : IN STD_LOGIC_VECTOR(7 downto 0);
+    TX_Read_Byte            : OUT NATURAL range 0 to 1472 := 0;
+    
+    --PHY Interface
+    PHY_Empty               : OUT STD_LOGIC := '1';
+    PHY_Read_Enable         : IN  STD_LOGIC;
+    PHY_Data                : OUT STD_LOGIC_VECTOR(7 downto 0);
+    PHY_EOF                 : OUT STD_LOGIC := '0';
+)
+{
+    SeqFunction UDP_Send
+    (
+        Data_Length : NATURAL range 0 to 1472;
+        Data_RAM    : UDP_Data_RAM_t;
+        
+        Start     : STD_LOGIC;
+        Length    : NATURAL range 0 to 1472;
+        Data      : STD_LOGIC_VECTOR(7 downto 0);
+        Read_Byte : NATURAL range 0 to 1472;
+    )
+    {
+        While(Read_Byte < Data_Length)
+        {
+            Length <= Data_Length;
+            Data   <= Data_RAM(Read_Byte);
+            
+            If(Read_Byte = 0) { Start  <= '1'; }
+            Else { Start <= '0'; }
+        }
+    }
+    
+    Process()
+    {
+        If(falling_edge(CLK))
+        {
+            VARIABLE IP_Checksum     : STD_LOGIC_VECTOR(15 downto 0);
+            VARIABLE IP_Checksum_sum : UNSIGNED(19 downto 0);
+            VARIABLE UDP_Checksum    : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
+            
+            VARIABLE Running         : BOOLEAN := false;
+            VARIABLE Start           : BOOLEAN := false;
+            VARIABLE Frame_Element   : NATURAL range 0 to 11 := 0;
+            VARIABLE Frame_Data      : STD_LOGIC_VECTOR(31 downto 0);
+            VARIABLE Byte_Cnt        : NATURAL range 0 to 3 := 0;
+            If(Running)
+            {
+                Case(Frame_Element)
+                {
+                    When(0) --Destination MAC 5-2
+                    {
+                        Frame_Data := Destination_MAC_Address(6*8-1 downto 2*8);
+                    }
+                    When(1) --Destination MAC 1-0, Source MAC 5-4
+                    {
+                        Frame_Data := Destination_MAC_Address(2*8-1 downto 0) & Source_MAC_Address(6*8-1 downto 4*8);
+                    }
+                    When(2) --Source MAC 3-0
+                    {
+                        Frame_Data := Source_MAC_Address(4*8-1 downto 0);
+                    }
+                    When(3) --EtherType 1-0
+                    {
+                        Frame_Data(31 downto 16) := EtherType;
+                    }
+                    When(4) --Version, IHL, TOS, Total Length
+                    {
+                        Frame_Data := Version & IHL & TOS & STD_LOGIC_VECTOR(TO_UNSIGNED(TX_Length+28, 16));
+                    }
+                    When(5) --Identification, Flags, Fragment Offset
+                    {
+                        Frame_Data := Identification & Flags & Fragment_Offset;
+                    }
+                    When(6) --TTL, Protocol, IP Header Checksum
+                    {
+                        Frame_Data := TTL & Protocol & IP_Checksum;
+                    }
+                    When(7) --IP Source Address
+                    {
+                        Frame_Data := Source_IP_Address;
+                    }
+                    When(8) --IP Destination Address
+                    {
+                        Frame_Data := Destination_IP_Address;
+                    }
+                    When(9) --Source Port, Destination Port
+                    {
+                        Frame_Data := Source_UDP_Port & Destination_UDP_Port;
+                    }
+                    When(10) --UDP Length, UDP Checksum
+                    {
+                        Frame_Data := STD_LOGIC_VECTOR(TO_UNSIGNED(TX_Length+8, 16)) & UDP_Checksum;
+                    }
+                    When(others)
+                    {
+                        null;
+                    }
+                }
+                
+                VARIABLE Read_Byte_Reg : NATURAL range 0 to 1472 := 0;
+                If(PHY_Read_Enable = '1' or Start)
+                {
+                    Start := false;
+                    If(Frame_Element < 11)
+                    {
+                        PHY_Data <= Frame_Data((Byte_Cnt+1)*8-1 downto Byte_Cnt*8);
+                        If((Byte_Cnt > 0 AND Frame_Element /= 3) OR Byte_Cnt > 2)
+                        {
+                            Byte_Cnt := Byte_Cnt - 1;
+                        }
+                        Else
+                        {
+                            Byte_Cnt := 3;
+                            Frame_Element := Frame_Element + 1;
+                        }
+                    }
+                    Else
+                    {
+                        If(Read_Byte_Reg < TX_Length)
+                        {
+                            PHY_Data     <= TX_Data;
+                            Read_Byte_Reg := Read_Byte_Reg + 1;
+                            If(Read_Byte_Reg = TX_Length)
+                            {
+                                PHY_EOF <= '1';
+                            }
+                        }
+                        Else
+                        {
+                            PHY_Data  <= (others => '0');
+                            PHY_Empty <= '1';
+                            PHY_EOF   <= '0';
+                            Read_Byte_Reg := 0;
+                            Frame_Element := 0;
+                            Running   := false;
+                        }
+                    }
+                }
+                
+                Thread
+                {
+                    While(Frame_Element > 0) {}
+                    IP_Checksum_sum := x"00000";
+                    VARIABLE Checksum_Add : STD_LOGIC_VECTOR(15 downto 0);
+                    For(VARIABLE i : INTEGER range 0 to 9 := 0; i < 9; i := i + 1)
+                    {
+                        Case(i)
+                        {
+                            When(0) { Checksum_Add := Version & IHL & TOS; }
+                            When(1) { Checksum_Add := std_logic_vector(TO_UNSIGNED(TX_Length+28, 16)); }
+                            When(2) { Checksum_Add := Identification; }
+                            When(3) { Checksum_Add := Flags & Fragment_Offset; }
+                            When(4) { Checksum_Add := TTL & Protocol; }
+                            When(5) { Checksum_Add := Source_IP_Address(31 downto 16); }
+                            When(6) { Checksum_Add := Source_IP_Address(15 downto 0); }
+                            When(7) { Checksum_Add := Destination_IP_Address(31 downto 16); }
+                            When(8) { Checksum_Add := Destination_IP_Address(15 downto 0); }
+                            When(9) { null; }
+                        }
+                        IP_Checksum_sum := IP_Checksum_sum + unsigned(Checksum_Add);
+                    }
+                    VARIABLE IP_Checksum_carry : UNSIGNED(3 downto 0);
+                    For(i := 0; i < 2; i := i + 1)
+                    {
+                        IP_Checksum_carry         := IP_Checksum_sum(19 downto 16);
+                        IP_Checksum_sum(19 downto 16) := x"0";
+                        IP_Checksum_sum           := IP_Checksum_sum + IP_Checksum_carry;
+                    }
+                    IP_Checksum := NOT std_logic_vector(IP_Checksum_sum(15 downto 0));
+                    While(Frame_Element < 7) {}
+                }
+                --Checksum calculation:
+                --Until Frame_Element = 3 -> Add while sending
+                --For 3-8 -> Add 16 Bit every cycle
+            }
+            Else
+            {
+                If(TX_Start = '1')
+                {
+                    Read_Byte_Reg := 0;
+                    PHY_Empty <= '0';
+                    Running := true;
+                    Start   := true;
+                    Byte_Cnt := 3;
+                }
+            }
+            
+            TX_Read_Byte <= Read_Byte_Reg;
+        }
+    }
+}

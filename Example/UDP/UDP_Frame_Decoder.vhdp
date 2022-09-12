@@ -1,0 +1,119 @@
+/*
+    Name: UDP Frame Decoder
+    Rev: 1.0
+    Creator: Leon Beier
+    Date: 11.09.2022
+    Copyright (c) 2022 Protop Solutions UG. All right reserved.
+    
+    Permission is hereby granted, free of charge, to any person obtaining a copy of
+    this hdl code and associated documentation files (the "HDL Code"), to deal in the
+    HDL Code without restriction, including without limitation the rights to use,
+    copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+    HDL Code, and to permit persons to whom the HDL Code is furnished to do so,
+    subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the HDL Code.
+
+    THE HDL Code IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+    FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+    AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+    WITH THE HDL Code OR THE USE OR OTHER DEALINGS IN THE HDL Code.
+
+    Description: -This component decodes an Ethernet frame with IP and UDP
+                 -The PHY_... I/Os are connected with e.g. the lan8720a library
+               
+    Usage:       -
+    
+ */
+
+Component UDP_Frame_Decoder
+(
+    Include ();
+    Generic
+    (
+        Buffer_Size : NATURAL := 256; --Maximum number of bytes that can be received
+    );
+    --Ethernet
+    Source_MAC_Address      : OUT STD_LOGIC_VECTOR(6*8-1 downto 0);
+    Destination_MAC_Address : OUT STD_LOGIC_VECTOR(6*8-1 downto 0);
+    
+    --IP Fragment
+    Identification          : OUT STD_LOGIC_VECTOR(2*8-1 downto 0); --For fragmented packets
+    Flags                   : OUT STD_LOGIC_VECTOR(2 downto 0);
+    Fragment_Offset         : OUT STD_LOGIC_VECTOR(12 downto 0);
+    
+    --IP Address
+    Source_IP_Address       : OUT STD_LOGIC_VECTOR(4*8-1 downto 0);
+    Destination_IP_Address  : OUT STD_LOGIC_VECTOR(4*8-1 downto 0);
+    
+    --UDP
+    Source_UDP_Port         : OUT STD_LOGIC_VECTOR(2*8-1 downto 0);
+    Destination_UDP_Port    : OUT STD_LOGIC_VECTOR(2*8-1 downto 0);
+    
+    --UDP RX
+    RX_Busy                 : OUT STD_LOGIC := '0';
+    RX_Length               : OUT NATURAL range 0 to 1472 := 0; --Length of Data in Bytes (without 20 Byte IP and 8 Byte UDP)
+    RX_Data                 : OUT STD_LOGIC_VECTOR(7 downto 0);
+    RX_Read_Byte            : IN  NATURAL range 0 to Buffer_Size-1 := 0;
+    
+    --PHY Interface
+    PHY_Valid               : IN STD_LOGIC := '1';
+    PHY_Data                : IN STD_LOGIC_VECTOR(7 downto 0);
+    PHY_EOF                 : IN STD_LOGIC := '0';
+)
+{
+    type UDP_Data_RAM_t is array (natural range <>) of STD_LOGIC_VECTOR(7 downto 0);
+    SIGNAL Data_Buffer : UDP_Data_RAM_t(Buffer_Size-1 downto 0);
+    
+    RX_Data <= Data_Buffer(RX_Read_Byte);
+    
+    Process()
+    {
+        If(falling_edge(CLK))
+        {
+            VARIABLE Byte : NATURAL range 0 to 1514 := 0;
+            If(PHY_Valid = '1')
+            {
+                RX_Busy <= '1';
+                
+                Case(Byte)
+                {
+                    When(0 to 5){ Destination_MAC_Address((6-Byte)*8-1 downto (5-Byte)*8) <= PHY_Data; }
+                    When(6 to 11){ Source_MAC_Address((12-Byte)*8-1 downto (11-Byte)*8) <= PHY_Data; }
+                    When(18 to 19){ Identification((20-Byte)*8-1 downto (19-Byte)*8) <= PHY_Data; }
+                    When(20)
+                    {
+                        Flags <= PHY_Data(7 downto 5);
+                        Fragment_Offset(12 downto 8) <= PHY_Data(4 downto 0);
+                    }
+                    When(21){ Fragment_Offset(7 downto 0) <= PHY_Data; }
+                    When(26 to 29){ Source_IP_Address((30-Byte)*8-1 downto (29-Byte)*8) <= PHY_Data; }
+                    When(30 to 33){ Destination_IP_Address((34-Byte)*8-1 downto (33-Byte)*8) <= PHY_Data; }
+                    When(34 to 35){ Source_UDP_Port((36-Byte)*8-1 downto (35-Byte)*8) <= PHY_Data; }
+                    When(36 to 37){ Destination_UDP_Port((38-Byte)*8-1 downto (37-Byte)*8) <= PHY_Data; }
+                    When(others)
+                    {
+                        If(Byte > 41 AND Byte < 42+Buffer_Size)
+                        {
+                            Data_Buffer(Byte-42) <= PHY_Data;
+                        }
+                    }
+                }
+                
+                If(PHY_EOF = '1')
+                {
+                    RX_Busy   <= '0';
+                    RX_Length <= Byte-41;
+                    Byte := 0;
+                }
+                Else
+                {
+                    Byte := Byte + 1;
+                }
+            }
+        }
+    }
+}

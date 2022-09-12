@@ -1,0 +1,21 @@
+﻿<Project>
+  <ItemGroup>
+    <File Include="Generated/LAN8720.vhd" />
+    <File Include="Generated/UDP_Frame_Decoder.vhd" />
+    <File Include="Generated/UDP_Frame_Generator.vhd" />
+    <File Include="Libraries/ISSP/ISSP.qsys" />
+    <File Include="Libraries/ISSP/ISSP.qsys.vhdp" />
+    <File Include="LAN_Test.vhdp" />
+    <File Include="LAN_Test_Sim.ghdp" />
+    <File Include="UDP_Frame_Decoder.vhdp" />
+    <File Include="UDP_Frame_Generator.vhdp" />
+    <File Include="lan8720a.vhd" />
+    <File Include="rmii_rx.vhd" />
+    <File Include="rmii_tx.vhd" />
+  </ItemGroup>
+  <PropertyGroup>
+    <HardwareStartPath>lan8720a.vhd</HardwareStartPath>
+    <SelectedFpga>MAX1000</SelectedFpga>
+    <IoVoltage>3.3V</IoVoltage>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,61 @@
+Component LAN8720_tb()
+{
+    SIGNAL finished : STD_LOGIC:= '0';
+    CONSTANT period_time : TIME := 83333 ps;
+
+    Process Sim_finished()
+    {
+        wait for 500000 us;
+        finished <= '1';
+        wait;
+    }
+
+    NewComponent LAN8720
+    (
+        lan8720a_eth_retclk_i => lan8720a_eth_retclk_i,
+        lan8720a_eth_txd_o => lan8720a_eth_txd_o,
+        lan8720a_eth_txen_o => lan8720a_eth_txen_o,
+        lan8720a_eth_rxd_i => lan8720a_eth_rxd_i,
+        lan8720a_eth_crsdv_i => lan8720a_eth_crsdv_i,
+        lan8720a_eth_mdio_io => lan8720a_eth_mdio_io,
+        lan8720a_eth_mdc_o => lan8720a_eth_mdc_o,
+        CLK => CLK,
+    );
+    
+    lan8720a_eth_rxd_i <= lan8720a_eth_txd_o;
+    lan8720a_eth_crsdv_i <= lan8720a_eth_txen_o;
+
+    SIGNAL lan8720a_eth_retclk_i : std_logic ;
+    SIGNAL lan8720a_eth_txd_o : std_logic_vector (1 downto 0);
+    SIGNAL lan8720a_eth_txen_o : std_logic ;
+    SIGNAL lan8720a_eth_rxd_i : std_logic_vector (1 downto 0);
+    SIGNAL lan8720a_eth_crsdv_i : std_logic ;
+    SIGNAL lan8720a_eth_mdio_io : std_logic ;
+    SIGNAL lan8720a_eth_mdc_o : std_logic ;
+    SIGNAL CLK : STD_LOGIC := '0';
+
+
+    Process Sim_lan8720a_eth_retclk_i()
+    {
+        While(finished /= '1')
+        {
+            lan8720a_eth_retclk_i <= '0';
+            wait for 12500 ps;
+            lan8720a_eth_retclk_i <= '1';
+            wait for 12500 ps;
+        }
+        wait;
+    }
+
+    Process Sim_CLK()
+    {
+        While(finished /= '1')
+        {
+            CLK <= '0';
+            wait for period_time/2;
+            CLK <= '1';
+            wait for period_time/2;
+        }
+        wait;
+    }
+}

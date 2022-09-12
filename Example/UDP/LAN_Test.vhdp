@@ -1,0 +1,168 @@
+Main
+(
+    LED : OUT STD_LOGIC; --Blinks if 50MHz clock is working
+    
+    lan8720a_eth_retclk_i : IN    std_logic;
+    lan8720a_eth_txd_o    : OUT   std_logic_vector(1 downto 0);
+    lan8720a_eth_txen_o   : OUT   std_logic;
+    lan8720a_eth_rxd_i    : IN    std_logic_vector(1 downto 0);
+    lan8720a_eth_crsdv_i  : IN    std_logic;
+    lan8720a_eth_mdio_io  : INOUT std_logic;
+    lan8720a_eth_mdc_o    : OUT   std_logic;
+)
+{
+    Process()
+    {
+        If(rising_edge(lan8720a_eth_retclk_i))
+        {
+            Thread
+            {
+                LED <= '1';
+                Wait(25000000);
+                LED <= '0';
+                Wait(25000000);
+            }
+        }
+    }
+    
+    --Frame ISSP
+    SIGNAL ISSP_source : std_logic_vector(7 downto 0);
+    SIGNAL ISSP_probe : std_logic_vector(31 downto 0) := (others => 'X');
+    NewComponent ISSP
+    (
+        source => ISSP_source,
+        probe  => ISSP_probe,
+    );
+    
+    Process()
+    {
+        Case(ISSP_source)
+        {
+            When(x"00") { ISSP_probe <= UDP_Destination_MAC_Address(6*8-1 downto 2*8); }
+            When(x"01") { ISSP_probe <= UDP_Destination_MAC_Address(2*8-1 downto 0) & UDP_Source_MAC_Address(6*8-1 downto 4*8); }
+            When(x"02") { ISSP_probe <= UDP_Source_MAC_Address(4*8-1 downto 0); }
+            When(x"03") { ISSP_probe <= UDP_Source_IP_Address; }
+            When(x"04") { ISSP_probe <= UDP_Destination_IP_Address; }
+            When(x"05") { ISSP_probe <= UDP_Source_UDP_Port & UDP_Destination_UDP_Port; }
+            When(others) { null; }
+        }
+    }
+    
+    --Data ISSP
+    SIGNAL ISSP_D_source : std_logic_vector(7 downto 0);
+    SIGNAL ISSP_D_probe : std_logic_vector(31 downto 0) := (others => 'X');
+    NewComponent ISSP
+    (
+        source => ISSP_D_source,
+        probe  => ISSP_D_probe,
+    );
+    
+    ISSP_D_probe(7 downto 0) <= UDP_RX_Data;
+    UDP_RX_Read_Byte <= TO_INTEGER(UNSIGNED(ISSP_D_source));
+    
+    SIGNAL UDP_Data_RAM    : UDP_Data_RAM_t(0 to 4) := (x"01", x"02", x"03", x"04", x"05");
+    SIGNAL UDP_Data_Length : NATURAL range 0 to 1472 := 5;
+    
+    SIGNAL lan8720a_rst_i : std_logic;
+    Process()
+    {
+        Thread
+        {
+            lan8720a_rst_i <= '1';
+            Wait(30ms);
+            lan8720a_rst_i <= '0';
+            Wait(30ms);
+            While(true)
+            {
+                NewFunction UDP_Send (UDP_Data_Length, UDP_Data_RAM, UDP_TX_Start, UDP_TX_Length, UDP_TX_Data, UDP_TX_Read_Byte);
+                Wait(1000ms);
+            }
+        }
+    }
+    
+    SIGNAL UDP_TX_Start : STD_LOGIC := '0';
+    SIGNAL UDP_TX_Length : NATURAL range 0 to 1472 := 0;
+    SIGNAL UDP_TX_Data : STD_LOGIC_VECTOR(7 downto 0);
+    SIGNAL UDP_TX_Read_Byte : NATURAL range 0 to 1472 := 0;
+    NewComponent UDP_Frame_Generator
+    (
+        Source_MAC_Address      => x"123456781234", --My MAC
+
+        CLK                     => lan8720a_eth_retclk_i,
+        Destination_MAC_Address => x"876543218765", --Your MAC
+        Source_IP_Address       => x"C0A80005",     --My IP
+        Destination_IP_Address  => x"C0A80002",     --Your IP
+        Source_UDP_Port         => x"C000",         --My Port
+        Destination_UDP_Port    => x"C000",         --Your Port
+        TX_Start                => UDP_TX_Start,
+        TX_Length               => UDP_TX_Length,
+        TX_Data                 => UDP_TX_Data,
+        TX_Read_Byte            => UDP_TX_Read_Byte,
+        PHY_Empty               => lan8720a_tx_empty_i,
+        PHY_Read_Enable         => lan8720a_tx_rden_o,
+        PHY_Data                => lan8720a_tx_data_i,
+        PHY_EOF                 => lan8720a_tx_eof_i,
+    );
+    
+    SIGNAL UDP_Source_MAC_Address : STD_LOGIC_VECTOR(6 * 8 - 1 downto 0);
+    SIGNAL UDP_Destination_MAC_Address : STD_LOGIC_VECTOR(6 * 8 - 1 downto 0);
+    SIGNAL UDP_Source_IP_Address : STD_LOGIC_VECTOR(4 * 8 - 1 downto 0);
+    SIGNAL UDP_Destination_IP_Address : STD_LOGIC_VECTOR(4 * 8 - 1 downto 0);
+    SIGNAL UDP_Source_UDP_Port : STD_LOGIC_VECTOR(2 * 8 - 1 downto 0);
+    SIGNAL UDP_Destination_UDP_Port : STD_LOGIC_VECTOR(2 * 8 - 1 downto 0);
+    SIGNAL UDP_RX_Busy : STD_LOGIC := '0';
+    SIGNAL UDP_RX_Length : NATURAL range 0 to 1472 := 0;
+    SIGNAL UDP_RX_Data : STD_LOGIC_VECTOR(7 downto 0);
+    SIGNAL UDP_RX_Read_Byte : NATURAL range 0 to 256 - 1 := 0;
+    NewComponent UDP_Frame_Decoder
+    (
+        Buffer_Size             => 256,
+
+        CLK                     => lan8720a_eth_retclk_i,
+        Source_MAC_Address      => UDP_Source_MAC_Address,
+        Destination_MAC_Address => UDP_Destination_MAC_Address,
+        Source_IP_Address       => UDP_Source_IP_Address,
+        Destination_IP_Address  => UDP_Destination_IP_Address,
+        Source_UDP_Port         => UDP_Source_UDP_Port,
+        Destination_UDP_Port    => UDP_Destination_UDP_Port,
+        RX_Busy                 => UDP_RX_Busy,
+        RX_Length               => UDP_RX_Length,
+        RX_Data                 => UDP_RX_Data,
+        RX_Read_Byte            => UDP_RX_Read_Byte,
+        PHY_Valid               => lan8720a_rx_valid_o,
+        PHY_Data                => lan8720a_rx_data_o,
+        PHY_EOF                 => lan8720a_rx_eof_o,
+    );
+    
+    SIGNAL lan8720a_rx_valid_o : std_logic;
+    SIGNAL lan8720a_rx_eof_o : std_logic;
+    SIGNAL lan8720a_rx_data_o : std_logic_vector(7 downto 0);
+    SIGNAL lan8720a_rx_error_o : std_logic_vector(1 downto 0);
+    
+    SIGNAL lan8720a_tx_empty_i : std_logic;
+    SIGNAL lan8720a_tx_rden_o : std_logic;
+    SIGNAL lan8720a_tx_data_i : std_logic_vector(7 downto 0);
+    SIGNAL lan8720a_tx_eof_i : std_logic;
+    
+    NewComponent lan8720a
+    (
+        clk_i        => lan8720a_eth_retclk_i,
+        rst_i        => lan8720a_rst_i,
+        rx_valid_o   => lan8720a_rx_valid_o,
+        rx_eof_o     => lan8720a_rx_eof_o,
+        rx_data_o    => lan8720a_rx_data_o,
+        rx_error_o   => lan8720a_rx_error_o,
+        tx_empty_i   => lan8720a_tx_empty_i,
+        tx_rden_o    => lan8720a_tx_rden_o,
+        tx_data_i    => lan8720a_tx_data_i,
+        tx_eof_i     => lan8720a_tx_eof_i,
+        eth_txd_o    => lan8720a_eth_txd_o,
+        eth_txen_o   => lan8720a_eth_txen_o,
+        eth_rxd_i    => lan8720a_eth_rxd_i,
+        eth_rxerr_i  => '0',
+        eth_crsdv_i  => lan8720a_eth_crsdv_i,
+        eth_intn_i   => '1',
+        eth_mdio_io  => lan8720a_eth_mdio_io,
+        eth_mdc_o    => lan8720a_eth_mdc_o,
+    );
+}
