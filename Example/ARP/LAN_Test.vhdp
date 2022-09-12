@@ -1,0 +1,97 @@
+Main
+(
+    LED : OUT STD_LOGIC; --Blinks if 50MHz clock is working
+    
+    lan8720a_eth_retclk_i : IN    std_logic;
+    lan8720a_eth_txd_o    : OUT   std_logic_vector(1 downto 0);
+    lan8720a_eth_txen_o   : OUT   std_logic;
+    lan8720a_eth_rxd_i    : IN    std_logic_vector(1 downto 0);
+    lan8720a_eth_crsdv_i  : IN    std_logic;
+    lan8720a_eth_mdio_io  : INOUT std_logic;
+    lan8720a_eth_mdc_o    : OUT   std_logic;
+)
+{
+    Process()
+    {
+        If(rising_edge(lan8720a_eth_retclk_i))
+        {
+            Thread
+            {
+                LED <= '1';
+                Wait(25000000);
+                LED <= '0';
+                Wait(25000000);
+            }
+        }
+    }
+
+    SIGNAL lan8720a_rst_i : std_logic;
+    Process()
+    {
+        Thread
+        {
+            lan8720a_rst_i <= '1';
+            Wait(30ms);
+            lan8720a_rst_i <= '0';
+            Wait(30ms);
+            While(true)
+            {
+                ARP_Destination_IP_Address <= x"C0A80005";
+                
+                Wait(1000ms);
+            }
+        }
+    }
+    
+    SIGNAL ARP_Operation : STD_LOGIC_VECTOR(2 * 8 - 1 downto 0) := x"0001";
+    SIGNAL ARP_Destination_IP_Address : STD_LOGIC_VECTOR(4 * 8 - 1 downto 0) := x"C0A80002";
+    SIGNAL ARP_ARP_Start : STD_LOGIC := '0';
+    SIGNAL ARP_ARP_Busy : STD_LOGIC := '0';
+    NewComponent ARP_Frame_Generator
+    (
+        Source_MAC_Address      => x"123456781234",
+
+        Destination_MAC_Address => x"FFFFFFFFFFFF",
+        Operation               => ARP_Operation,
+        Source_IP_Address       => x"C0A80005",
+        Destination_IP_Address  => ARP_Destination_IP_Address,
+        ARP_Start               => ARP_ARP_Start,
+        ARP_Busy                => ARP_ARP_Busy,
+        PHY_Empty               => lan8720a_tx_empty_i,
+        PHY_Read_Enable         => lan8720a_tx_rden_o,
+        PHY_Data                => lan8720a_tx_data_i,
+        PHY_EOF                 => lan8720a_tx_eof_i,
+    );
+    
+    SIGNAL lan8720a_rx_valid_o : std_logic;
+    SIGNAL lan8720a_rx_eof_o : std_logic;
+    SIGNAL lan8720a_rx_data_o : std_logic_vector(7 downto 0);
+    SIGNAL lan8720a_rx_error_o : std_logic_vector(1 downto 0);
+    
+    SIGNAL lan8720a_tx_empty_i : std_logic;
+    SIGNAL lan8720a_tx_rden_o : std_logic;
+    SIGNAL lan8720a_tx_data_i : std_logic_vector(7 downto 0);
+    SIGNAL lan8720a_tx_eof_i : std_logic;
+    
+    NewComponent lan8720a
+    (
+        clk_i        => lan8720a_eth_retclk_i,
+        rst_i        => lan8720a_rst_i,
+        rx_valid_o   => lan8720a_rx_valid_o,
+        rx_eof_o     => lan8720a_rx_eof_o,
+        rx_data_o    => lan8720a_rx_data_o,
+        rx_error_o   => lan8720a_rx_error_o,
+        tx_empty_i   => lan8720a_tx_empty_i,
+        tx_rden_o    => lan8720a_tx_rden_o,
+        tx_data_i    => lan8720a_tx_data_i,
+        tx_eof_i     => lan8720a_tx_eof_i,
+        eth_txd_o    => lan8720a_eth_txd_o,
+        eth_txen_o   => lan8720a_eth_txen_o,
+        eth_rxd_i    => lan8720a_eth_rxd_i,
+        eth_rxerr_i  => '0',
+        eth_crsdv_i  => lan8720a_eth_crsdv_i,
+        eth_intn_i   => '1',
+        eth_mdio_io  => lan8720a_eth_mdio_io,
+        eth_mdc_o    => lan8720a_eth_mdc_o,
+    );
+}

@@ -1,0 +1,20 @@
+# auto-generated
+[Libraries]
+work.files = [
+	'lan8720a.vhd',
+	'rmii_rx.vhd',
+	'rmii_tx.vhd',
+	'Generated/LAN8720.vhd',
+	'Generated/UDP_Frame_Decoder.vhd',
+	'Generated/UDP_Frame_Generator.vhd'
+]
+[libraries.work]
+files = [
+	'lan8720a.vhd',
+	'rmii_rx.vhd',
+	'rmii_tx.vhd',
+	'Generated/LAN8720.vhd',
+	'Generated/UDP_Frame_Decoder.vhd',
+	'Generated/UDP_Frame_Generator.vhd'
+]
+# auto-generated-end
