@@ -198,16 +198,16 @@ Component ARP_Frame_Generator
                     }
                 }
             }
-        }
-        Else
-        {
-            If(ARP_Start = '1')
+            Else
             {
-                PHY_Empty <= '0';
-                ARP_Busy  <= '1';
-                Running := true;
-                Start   := true;
-                Byte_Cnt := 3;
+                If(ARP_Start = '1')
+                {
+                    PHY_Empty <= '0';
+                    ARP_Busy  <= '1';
+                    Running := true;
+                    Start   := true;
+                    Byte_Cnt := 3;
+                }
             }
         }
     }

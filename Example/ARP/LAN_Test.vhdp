@@ -36,7 +36,7 @@ Main
             Wait(30ms);
             While(true)
             {
-                ARP_Destination_IP_Address <= x"C0A80005";
+                ARP_Destination_IP_Address <= x"C0A80002";
                 ARP_Operation              <= x"0001"; --1 = Request, 2 = Answer
                 ARP_ARP_Start              <= '1';
                 While(ARP_ARP_Busy = '0') {}
