@@ -137,7 +137,7 @@ Component ARP_Frame_Generator
                     }
                     When(4) --HTYPE, PTYPE
                     {
-                        Frame_Data := HTYPE & EtherType;
+                        Frame_Data := HTYPE & PTYPE;
                     }
                     When(5) --HLEN, PLEN, OPER
                     {
