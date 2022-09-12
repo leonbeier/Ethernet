@@ -69,9 +69,10 @@ Component ARP_Frame_Generator
     (
         --Ethernet
         Source_MAC_Address : STD_LOGIC_VECTOR(6*8-1 downto 0) := x"123456781234";
-        EtherType          : STD_LOGIC_VECTOR(2*8-1 downto 0) := x"0800"; --0x0800 is IPv4
+        EtherType          : STD_LOGIC_VECTOR(2*8-1 downto 0) := x"0806"; --0x0806 is ARP
         
         HTYPE              : STD_LOGIC_VECTOR(2*8-1 downto 0) := x"0001"; --1 = Ethernet
+        PTYPE              : STD_LOGIC_VECTOR(2*8-1 downto 0) := x"0800"; --1 = Ethernet
         HLEN               : STD_LOGIC_VECTOR(8-1 downto 0) := x"06";     --Bytes of MAC Address
         PLEN               : STD_LOGIC_VECTOR(8-1 downto 0) := x"04";     --Bytes of IP Address
     );
