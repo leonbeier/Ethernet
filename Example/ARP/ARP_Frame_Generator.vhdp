@@ -55,7 +55,7 @@
     
  */
 
-Component UDP_Frame_Generator
+Component ARP_Frame_Generator
 (
     Include
     (
@@ -83,6 +83,9 @@ Component UDP_Frame_Generator
     Source_IP_Address       : IN STD_LOGIC_VECTOR(4*8-1 downto 0) := x"C0A80005"; --192.168.0.5
     Destination_IP_Address  : IN STD_LOGIC_VECTOR(4*8-1 downto 0) := x"C0A80002"; --192.168.0.2
     
+    ARP_Start               : IN STD_LOGIC := '0';
+    ARP_Busy                : OUT STD_LOGIC := '0';
+    
     --PHY Interface
     PHY_Empty               : OUT STD_LOGIC := '1';
     PHY_Read_Enable         : IN  STD_LOGIC;
@@ -95,17 +98,24 @@ Component UDP_Frame_Generator
     {
         If(falling_edge(CLK))
         {
-            VARIABLE IP_Checksum     : STD_LOGIC_VECTOR(15 downto 0);
-            VARIABLE IP_Checksum_sum : UNSIGNED(19 downto 0);
-            VARIABLE UDP_Checksum    : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
+            VARIABLE Dest_MAC : STD_LOGIC_VECTOR(6*8-1 downto 0) := x"000000000000";
             
             VARIABLE Running         : BOOLEAN := false;
             VARIABLE Start           : BOOLEAN := false;
-            VARIABLE Frame_Element   : NATURAL range 0 to 11 := 0;
+            VARIABLE Frame_Element   : NATURAL range 0 to 12 := 0;
             VARIABLE Frame_Data      : STD_LOGIC_VECTOR(31 downto 0);
             VARIABLE Byte_Cnt        : NATURAL range 0 to 3 := 0;
             If(Running)
             {
+                If(Operation = x"0001")
+                {
+                    Dest_MAC := x"000000000000";
+                }
+                Else
+                {
+                    Dest_MAC := Destination_MAC_Address;
+                }
+                
                 Case(Frame_Element)
                 {
                     When(0) --Destination MAC 5-2
@@ -142,11 +152,11 @@ Component UDP_Frame_Generator
                     }
                     When(8) --Source IP 1-0, Destination MAC 5-4
                     {
-                        Frame_Data := Source_IP_Address(2*8-1 downto 0) & Destination_MAC_Address(6*8-1 downto 4*8);
+                        Frame_Data := Source_IP_Address(2*8-1 downto 0) & Dest_MAC(6*8-1 downto 4*8);
                     }
                     When(9) --Destination MAC 3-0
                     {
-                        Frame_Data := Destination_MAC_Address(4*8-1 downto 0);
+                        Frame_Data := Dest_MAC(4*8-1 downto 0);
                     }
                     When(10) --Destination IP
                     {
@@ -173,70 +183,32 @@ Component UDP_Frame_Generator
                     }
                     
                     
-                    If(Frame_Element = 10)
-                    {
-                        PHY_EOF <= '1';
-                    }
-                    Elsif(Frame_Element > 10)
+                    if(Frame_Element = 11 AND Byte_Cnt < 3)
                     {
                         PHY_Data  <= (others => '0');
                         PHY_Empty <= '1';
                         PHY_EOF   <= '0';
+                        ARP_Busy  <= '0';
                         Frame_Element := 0;
                         Running   := false;
                     }
-                }
-            }
-            
-            Thread
-            {
-                While(Frame_Element > 0) {}
-                IP_Checksum_sum := x"00000";
-                VARIABLE Checksum_Add : STD_LOGIC_VECTOR(15 downto 0);
-                For(VARIABLE i : INTEGER range 0 to 9 := 0; i < 9; i := i + 1)
-                {
-                    Case(i)
+                    ElsIf(Frame_Element = 11 AND Byte_Cnt = 3)
                     {
-                        When(0) { Checksum_Add := Version & IHL & TOS; }
-                        When(1) { Checksum_Add := std_logic_vector(TO_UNSIGNED(TX_Length+28, 16)); }
-                        When(2) { Checksum_Add := Identification; }
-                        When(3) { Checksum_Add := Flags & Fragment_Offset; }
-                        When(4) { Checksum_Add := TTL & Protocol; }
-                        When(5) { Checksum_Add := Source_IP_Address(31 downto 16); }
-                        When(6) { Checksum_Add := Source_IP_Address(15 downto 0); }
-                        When(7) { Checksum_Add := Destination_IP_Address(31 downto 16); }
-                        When(8) { Checksum_Add := Destination_IP_Address(15 downto 0); }
-                        When(9) { null; }
+                        PHY_EOF <= '1';
                     }
-                    IP_Checksum_sum := IP_Checksum_sum + unsigned(Checksum_Add);
                 }
-                VARIABLE IP_Checksum_carry : UNSIGNED(3 downto 0);
-                For(i := 0; i < 2; i := i + 1)
-                {
-                    IP_Checksum_carry         := IP_Checksum_sum(19 downto 16);
-                    IP_Checksum_sum(19 downto 16) := x"0";
-                    IP_Checksum_sum           := IP_Checksum_sum + IP_Checksum_carry;
-                }
-                IP_Checksum := NOT std_logic_vector(IP_Checksum_sum(15 downto 0));
-                While(Frame_Element < 7) {}
             }
-                --Checksum calculation:
-                --Until Frame_Element = 3 -> Add while sending
-                --For 3-8 -> Add 16 Bit every cycle
         }
         Else
         {
-            If(TX_Start = '1')
+            If(ARP_Start = '1')
             {
-                Read_Byte_Reg := 0;
                 PHY_Empty <= '0';
+                ARP_Busy  <= '1';
                 Running := true;
                 Start   := true;
                 Byte_Cnt := 3;
             }
         }
-        
-        TX_Read_Byte <= Read_Byte_Reg;
     }
-}
 }

@@ -4,17 +4,17 @@ work.files = [
 	'lan8720a.vhd',
 	'rmii_rx.vhd',
 	'rmii_tx.vhd',
+	'Generated/ARP_Frame_Generator.vhd',
 	'Generated/LAN8720.vhd',
-	'Generated/UDP_Frame_Decoder.vhd',
-	'Generated/UDP_Frame_Generator.vhd'
+	'Generated/UDP_Frame_Decoder.vhd'
 ]
 [libraries.work]
 files = [
 	'lan8720a.vhd',
 	'rmii_rx.vhd',
 	'rmii_tx.vhd',
+	'Generated/ARP_Frame_Generator.vhd',
 	'Generated/LAN8720.vhd',
-	'Generated/UDP_Frame_Decoder.vhd',
-	'Generated/UDP_Frame_Generator.vhd'
+	'Generated/UDP_Frame_Decoder.vhd'
 ]
 # auto-generated-end

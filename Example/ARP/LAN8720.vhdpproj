@@ -1,8 +1,8 @@
 ﻿<Project>
   <ItemGroup>
+    <File Include="Generated/ARP_Frame_Generator.vhd" />
     <File Include="Generated/LAN8720.vhd" />
     <File Include="Generated/UDP_Frame_Decoder.vhd" />
-    <File Include="Generated/UDP_Frame_Generator.vhd" />
     <File Include="Libraries/ISSP/ISSP.qsys" />
     <File Include="Libraries/ISSP/ISSP.qsys.vhdp" />
     <File Include="LAN_Test.vhdp" />
