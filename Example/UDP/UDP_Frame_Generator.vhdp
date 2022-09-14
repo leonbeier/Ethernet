@@ -130,7 +130,7 @@ Component UDP_Frame_Generator
     
     Process()
     {
-        If(falling_edge(CLK))
+        If(rising_edge(CLK))
         {
             VARIABLE IP_Checksum     : STD_LOGIC_VECTOR(15 downto 0);
             VARIABLE IP_Checksum_sum : UNSIGNED(19 downto 0);
@@ -196,12 +196,13 @@ Component UDP_Frame_Generator
                 }
                 
                 VARIABLE Read_Byte_Reg : NATURAL range 0 to 1472 := 0;
+                SIGNAL Data_Reg : STD_LOGIC_VECTOR(7 downto 0);
                 If(PHY_Read_Enable = '1' or Start)
                 {
                     Start := false;
                     If(Frame_Element < 11)
                     {
-                        PHY_Data <= Frame_Data((Byte_Cnt+1)*8-1 downto Byte_Cnt*8);
+                        Data_Reg <= Frame_Data((Byte_Cnt+1)*8-1 downto Byte_Cnt*8);
                         If((Byte_Cnt > 0 AND Frame_Element /= 3) OR Byte_Cnt > 2)
                         {
                             Byte_Cnt := Byte_Cnt - 1;
@@ -216,7 +217,7 @@ Component UDP_Frame_Generator
                     {
                         If(Read_Byte_Reg < TX_Length)
                         {
-                            PHY_Data     <= TX_Data;
+                            Data_Reg     <= TX_Data;
                             Read_Byte_Reg := Read_Byte_Reg + 1;
                             If(Read_Byte_Reg = TX_Length)
                             {
@@ -225,7 +226,7 @@ Component UDP_Frame_Generator
                         }
                         Else
                         {
-                            PHY_Data  <= (others => '0');
+                            Data_Reg  <= (others => '0');
                             PHY_Empty <= '1';
                             PHY_EOF   <= '0';
                             Read_Byte_Reg := 0;
@@ -284,6 +285,7 @@ Component UDP_Frame_Generator
             }
             
             TX_Read_Byte <= Read_Byte_Reg;
+            PHY_Data <= Data_Reg;
         }
     }
 }

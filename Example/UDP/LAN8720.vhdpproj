@@ -1,10 +1,18 @@
 ﻿<Project>
   <ItemGroup>
+    <File Include="Generated/Input_Synchronizer.vhd" />
     <File Include="Generated/LAN8720.vhd" />
+    <File Include="Generated/Logic_Analyzer.vhd" />
+    <File Include="Generated/OLS_Interface.vhd" />
+    <File Include="Generated/OLS_Logic_Analyzer.vhd" />
+    <File Include="Generated/UART_Interface.vhd" />
     <File Include="Generated/UDP_Frame_Decoder.vhd" />
     <File Include="Generated/UDP_Frame_Generator.vhd" />
     <File Include="Libraries/ISSP/ISSP.qsys" />
     <File Include="Libraries/ISSP/ISSP.qsys.vhdp" />
+    <File Include="Libraries/PLL/PLL.qip" />
+    <File Include="Libraries/PLL/PLL.vhd" />
+    <File Include="Libraries/Input_Synchronizer.vhdp" />
     <File Include="LAN_Test.vhdp" />
     <File Include="LAN_Test_Sim.ghdp" />
     <File Include="UDP_Frame_Decoder.vhdp" />
@@ -14,7 +22,6 @@
     <File Include="rmii_tx.vhd" />
   </ItemGroup>
   <PropertyGroup>
-    <HardwareStartPath>lan8720a.vhd</HardwareStartPath>
     <SelectedFpga>MAX1000</SelectedFpga>
     <IoVoltage>3.3V</IoVoltage>
   </PropertyGroup>

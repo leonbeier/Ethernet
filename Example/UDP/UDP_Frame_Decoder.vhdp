@@ -72,12 +72,14 @@ Component UDP_Frame_Decoder
     
     Process()
     {
-        If(falling_edge(CLK))
+        If(rising_edge(CLK))
         {
             VARIABLE Byte : NATURAL range 0 to 1514 := 0;
             If(PHY_Valid = '1')
             {
                 RX_Busy <= '1';
+                
+                --Bei Byte = 1 starten und letzten data wert speichern der nicht 0 war
                 
                 Case(Byte)
                 {

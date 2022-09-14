@@ -1,6 +1,10 @@
 Main
 (
     LED : OUT STD_LOGIC; --Blinks if 50MHz clock is working
+    LED_Receive : OUT STD_LOGIC;
+    LED_Error   : OUT STD_LOGIC_VECTOR(1 downto 0);
+    LED_CRS     : OUT STD_LOGIC;
+    LED_RXD     : OUT STD_LOGIC_VECTOR(1 downto 0);
     
     lan8720a_eth_retclk_i : IN    std_logic;
     lan8720a_eth_txd_o    : OUT   std_logic_vector(1 downto 0);
@@ -11,6 +15,18 @@ Main
     lan8720a_eth_mdc_o    : OUT   std_logic;
 )
 {
+    SIGNAL RX_In : STD_LOGIC_VECTOR(2 downto 0);
+    NewComponent Input_Synchronizer
+    (
+        Input_Number => 3,
+        Stages       => 2,
+
+        CLK          => lan8720a_eth_retclk_i,
+        Data_In(1 downto 0) => lan8720a_eth_rxd_i,
+        Data_In(2)   => lan8720a_eth_crsdv_i,
+        Data_Out     => RX_In,
+    );
+    
     Process()
     {
         If(rising_edge(lan8720a_eth_retclk_i))
@@ -26,8 +42,9 @@ Main
     }
     
     --Frame ISSP
-    SIGNAL ISSP_source : std_logic_vector(7 downto 0);
-    SIGNAL ISSP_probe : std_logic_vector(31 downto 0) := (others => 'X');
+    SIGNAL ISSP_source : std_logic_vector(7 downto 0) := (others => '0');
+    SIGNAL ISSP_probe : std_logic_vector(31 downto 0) := (others => '0');
+    
     NewComponent ISSP
     (
         source => ISSP_source,
@@ -48,9 +65,9 @@ Main
         }
     }
     
-    --Data ISSP
-    SIGNAL ISSP_D_source : std_logic_vector(7 downto 0);
-    SIGNAL ISSP_D_probe : std_logic_vector(31 downto 0) := (others => 'X');
+        --Data ISSP
+    SIGNAL ISSP_D_source : std_logic_vector(7 downto 0) := (others => '0');
+    SIGNAL ISSP_D_probe : std_logic_vector(31 downto 0) := (others => '0');
     NewComponent ISSP
     (
         source => ISSP_D_source,
@@ -89,9 +106,9 @@ Main
         Source_MAC_Address      => x"123456781234", --My MAC
 
         CLK                     => lan8720a_eth_retclk_i,
-        Destination_MAC_Address => x"876543218765", --Your MAC
-        Source_IP_Address       => x"C0A80005",     --My IP
-        Destination_IP_Address  => x"C0A80002",     --Your IP
+        Destination_MAC_Address => x"FFFFFFFFFFFF", --Your MAC
+        Source_IP_Address       => x"A9FE3FBC",     --My IP
+        Destination_IP_Address  => x"A9FE3FBB",     --Your IP
         Source_UDP_Port         => x"C000",         --My Port
         Destination_UDP_Port    => x"C000",         --Your Port
         TX_Start                => UDP_TX_Start,
@@ -144,6 +161,11 @@ Main
     SIGNAL lan8720a_tx_data_i : std_logic_vector(7 downto 0);
     SIGNAL lan8720a_tx_eof_i : std_logic;
     
+    LED_Receive <= lan8720a_rx_valid_o;
+    LED_Error   <= lan8720a_rx_error_o;
+    LED_CRS     <= RX_In(2);
+    LED_RXD     <= RX_In(1 downto 0);
+    
     NewComponent lan8720a
     (
         clk_i        => lan8720a_eth_retclk_i,
@@ -158,9 +180,9 @@ Main
         tx_eof_i     => lan8720a_tx_eof_i,
         eth_txd_o    => lan8720a_eth_txd_o,
         eth_txen_o   => lan8720a_eth_txen_o,
-        eth_rxd_i    => lan8720a_eth_rxd_i,
+        eth_rxd_i    => RX_In(1 downto 0),
         eth_rxerr_i  => '0',
-        eth_crsdv_i  => lan8720a_eth_crsdv_i,
+        eth_crsdv_i  => RX_In(2),
         eth_intn_i   => '1',
         eth_mdio_io  => lan8720a_eth_mdio_io,
         eth_mdc_o    => lan8720a_eth_mdc_o,

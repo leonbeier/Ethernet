@@ -1,19 +1,31 @@
 # auto-generated
 [Libraries]
 work.files = [
+	'Libraries/PLL/PLL.vhd',
 	'lan8720a.vhd',
 	'rmii_rx.vhd',
 	'rmii_tx.vhd',
+	'Generated/Input_Synchronizer.vhd',
 	'Generated/LAN8720.vhd',
+	'Generated/Logic_Analyzer.vhd',
+	'Generated/OLS_Interface.vhd',
+	'Generated/OLS_Logic_Analyzer.vhd',
+	'Generated/UART_Interface.vhd',
 	'Generated/UDP_Frame_Decoder.vhd',
 	'Generated/UDP_Frame_Generator.vhd'
 ]
 [libraries.work]
 files = [
+	'Libraries/PLL/PLL.vhd',
 	'lan8720a.vhd',
 	'rmii_rx.vhd',
 	'rmii_tx.vhd',
+	'Generated/Input_Synchronizer.vhd',
 	'Generated/LAN8720.vhd',
+	'Generated/Logic_Analyzer.vhd',
+	'Generated/OLS_Interface.vhd',
+	'Generated/OLS_Logic_Analyzer.vhd',
+	'Generated/UART_Interface.vhd',
 	'Generated/UDP_Frame_Decoder.vhd',
 	'Generated/UDP_Frame_Generator.vhd'
 ]
