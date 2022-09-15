@@ -13,6 +13,10 @@
     <File Include="Libraries/PLL/PLL.qip" />
     <File Include="Libraries/PLL/PLL.vhd" />
     <File Include="Libraries/Input_Synchronizer.vhdp" />
+    <File Include="Libraries/Logic_Analyzer.vhdp" />
+    <File Include="Libraries/OLS_Interface.vhdp" />
+    <File Include="Libraries/OLS_Logic_Analyzer.vhdp" />
+    <File Include="Libraries/UART.vhdp" />
     <File Include="LAN_Test.vhdp" />
     <File Include="LAN_Test_Sim.ghdp" />
     <File Include="UDP_Frame_Decoder.vhdp" />

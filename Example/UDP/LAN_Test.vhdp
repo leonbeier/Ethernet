@@ -7,24 +7,35 @@ Main
     LED_RXD     : OUT STD_LOGIC_VECTOR(1 downto 0);
     
     lan8720a_eth_retclk_i : IN    std_logic;
-    lan8720a_eth_txd_o    : OUT   std_logic_vector(1 downto 0);
-    lan8720a_eth_txen_o   : OUT   std_logic;
+    lan8720a_eth_txd_o    : BUFFER   std_logic_vector(1 downto 0);
+    lan8720a_eth_txen_o   : BUFFER   std_logic;
     lan8720a_eth_rxd_i    : IN    std_logic_vector(1 downto 0);
     lan8720a_eth_crsdv_i  : IN    std_logic;
     lan8720a_eth_mdio_io  : INOUT std_logic;
     lan8720a_eth_mdc_o    : OUT   std_logic;
+    
+    UART_RX : IN STD_LOGIC;
+    UART_TX : OUT STD_LOGIC;
 )
 {
-    SIGNAL RX_In : STD_LOGIC_VECTOR(2 downto 0);
-    NewComponent Input_Synchronizer
+    OLS_Logic_Analyzer_Inputs(0) <= lan8720a_eth_retclk_i;
+    OLS_Logic_Analyzer_Inputs(2 downto 1) <= lan8720a_eth_txd_o;
+    OLS_Logic_Analyzer_Inputs(3) <= lan8720a_eth_txen_o;
+    OLS_Logic_Analyzer_Inputs(5 downto 4) <= lan8720a_eth_rxd_i;
+    OLS_Logic_Analyzer_Inputs(6) <= lan8720a_eth_crsdv_i;
+    
+    SIGNAL OLS_Logic_Analyzer_Inputs : STD_LOGIC_VECTOR(8 - 1 downto 0);
+    NewComponent OLS_Logic_Analyzer
     (
-        Input_Number => 3,
-        Stages       => 2,
+        Sample_CLK_Freq => 50000000,
+        Baud_Rate       => 12000000,
+        Max_Samples     => 20000,
+        Channels        => 8,
 
-        CLK          => lan8720a_eth_retclk_i,
-        Data_In(1 downto 0) => lan8720a_eth_rxd_i,
-        Data_In(2)   => lan8720a_eth_crsdv_i,
-        Data_Out     => RX_In,
+        Sample_CLK      => lan8720a_eth_retclk_i,
+        Inputs          => OLS_Logic_Analyzer_Inputs,
+        UART_RX         => UART_RX,
+        UART_TX         => UART_TX,
     );
     
     Process()
@@ -107,8 +118,8 @@ Main
 
         CLK                     => lan8720a_eth_retclk_i,
         Destination_MAC_Address => x"FFFFFFFFFFFF", --Your MAC
-        Source_IP_Address       => x"A9FE3FBC",     --My IP
-        Destination_IP_Address  => x"A9FE3FBB",     --Your IP
+        Source_IP_Address       => x"a9fe3fbc",     --My IP
+        Destination_IP_Address  => x"a9fe3fbb",     --Your IP
         Source_UDP_Port         => x"C000",         --My Port
         Destination_UDP_Port    => x"C000",         --Your Port
         TX_Start                => UDP_TX_Start,
@@ -163,8 +174,6 @@ Main
     
     LED_Receive <= lan8720a_rx_valid_o;
     LED_Error   <= lan8720a_rx_error_o;
-    LED_CRS     <= RX_In(2);
-    LED_RXD     <= RX_In(1 downto 0);
     
     NewComponent lan8720a
     (
@@ -180,9 +189,9 @@ Main
         tx_eof_i     => lan8720a_tx_eof_i,
         eth_txd_o    => lan8720a_eth_txd_o,
         eth_txen_o   => lan8720a_eth_txen_o,
-        eth_rxd_i    => RX_In(1 downto 0),
+        eth_rxd_i    => lan8720a_eth_rxd_i,
         eth_rxerr_i  => '0',
-        eth_crsdv_i  => RX_In(2),
+        eth_crsdv_i  => lan8720a_eth_crsdv_i,
         eth_intn_i   => '1',
         eth_mdio_io  => lan8720a_eth_mdio_io,
         eth_mdc_o    => lan8720a_eth_mdc_o,

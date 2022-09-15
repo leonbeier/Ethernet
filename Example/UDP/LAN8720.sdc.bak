@@ -1,0 +1,9 @@
+set_time_format -unit ns -decimal_places 3
+
+create_clock -name {CLK} -period 83.333 -waveform { 0.000 41.666 } [get_ports {CLK}]
+create_clock -name {lan8720a_eth_retclk_i} -period 20 -waveform { 0.000 10 } [get_ports {lan8720a_eth_retclk_i}]
+create_clock -name in_vir_clock -period 5
+create_clock -name out_vir_clock -period 5
+
+set_input_delay -clock { in_vir_clock } 1 [lan8720a_eth_txd_o*]
+set_output_delay -clock { out_vir_clock } 1 [lan8720a_eth_rxd_i*]
